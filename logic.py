@@ -26,13 +26,22 @@ def _session():
     })
     return s
 
-def fetch_tickers():
+def fetch_tickers(error_out=None):
     try:
         r = _session().get(BYBIT_TICKERS_URL,
                            params={'category': 'linear', 'limit': 1000},
-                           timeout=20).json()
-        return r['result']['list'] if r.get('retCode') == 0 else []
-    except Exception:
+                           timeout=20)
+        if error_out is not None:
+            error_out.append(f"tickers HTTP {r.status_code}")
+        data = r.json()
+        if data.get('retCode') != 0:
+            if error_out is not None:
+                error_out.append(f"retCode={data.get('retCode')} msg={data.get('retMsg')}")
+            return []
+        return data['result']['list']
+    except Exception as e:
+        if error_out is not None:
+            error_out.append(f"tickers EXC {type(e).__name__}: {e}")
         return []
 
 def fetch_klines(symbol):
@@ -93,7 +102,8 @@ def _change(df, hours):
     return ((cur - ago) / ago) * 100 > MIN_CHANGE_PCT
 
 def scan_with_stats():
-    tickers = fetch_tickers()
+    errors = []
+    tickers = fetch_tickers(error_out=errors)
     stats = {
         "tickers": len(tickers),
         "passed_filter": 0,
@@ -101,6 +111,7 @@ def scan_with_stats():
         "passed_change": 0,
         "final": 0,
         "near_misses": [],
+        "last_error": " | ".join(errors) if errors else "(no errors)",
     }
     result = {"24hr": [], "48hr": [], "72hr": []}
 
