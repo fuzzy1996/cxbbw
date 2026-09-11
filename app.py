@@ -44,7 +44,7 @@ PAGE = """
     {% if coins %}
       {% for c in coins %}
         <a target="_blank"
-           href="https://www.tradingview.com/chart/cq0P5xfh/?symbol=BYBIT%3A{{ c }}USDT.P">
+           href="https://www.tradingview.com/chart/cq0P5xfh/?symbol=BINANCE%3A{{ c }}USDT.P">
           🟣 {{ c }}
         </a>
       {% endfor %}
@@ -69,7 +69,7 @@ PAGE = """
         (none — means counter filter is killing everything)
       {% endif %}
       <br><br>
-      <b>Last Bybit error:</b><br>
+      <b>Last error:</b><br>
       {{ stats.last_error }}
     </div>
   {% endif %}
@@ -88,12 +88,12 @@ def index():
 def test():
     import requests
     try:
-        r = requests.get(
-            "https://api.bybit.com/v5/market/tickers",
-            params={"category": "linear", "limit": 5},
-            timeout=10,
-        )
-        return f"status={r.status_code}<br><br>body={r.text[:800]}"
+        r = requests.get("https://fapi.binance.com/fapi/v1/ping", timeout=10)
+        r2 = requests.get("https://fapi.binance.com/fapi/v1/ticker/24hr",
+                          params={"symbol": "BTCUSDT"}, timeout=10)
+        return (f"ping status={r.status_code}<br>"
+                f"ticker status={r2.status_code}<br><br>"
+                f"body={r2.text[:600]}")
     except Exception as e:
         return f"EXCEPTION: {type(e).__name__}: {e}"
 
