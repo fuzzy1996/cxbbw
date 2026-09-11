@@ -92,9 +92,18 @@ def _change(df, hours):
         return False
     return ((cur - ago) / ago) * 100 > MIN_CHANGE_PCT
 
-def scan():
+def scan_with_stats():
     tickers = fetch_tickers()
+    stats = {
+        "tickers": len(tickers),
+        "passed_filter": 0,
+        "passed_counter": 0,
+        "passed_change": 0,
+        "final": 0,
+        "near_misses": [],
+    }
     result = {"24hr": [], "48hr": [], "72hr": []}
+
     for t in tickers:
         sym = t.get('symbol', '')
         if not sym.endswith('USDT'):
@@ -106,15 +115,29 @@ def scan():
             continue
         if not (0 < price < MAX_PRICE and vol >= MIN_VOLUME_USD):
             continue
+        stats["passed_filter"] += 1
         coin = sym.replace('USDT', '')
         df = fetch_klines(sym)
         if df is None or len(df) < TOTAL_CANDLES:
             continue
         if _counter(df) != 1:
             continue
+        stats["passed_counter"] += 1
+        stats["near_misses"].append(coin)
+        matched_any = False
         for h in (24, 48, 72):
             if _change(df, h):
                 result[f"{h}hr"].append(coin)
+                matched_any = True
+        if matched_any:
+            stats["passed_change"] += 1
+
     for k in result:
         result[k].sort()
-    return result
+    stats["final"] = len(set(result["24hr"]) | set(result["48hr"]) | set(result["72hr"]))
+    stats["near_misses"] = stats["near_misses"][:20]
+    return result, stats
+
+def scan():
+    data, _ = scan_with_stats()
+    return data
