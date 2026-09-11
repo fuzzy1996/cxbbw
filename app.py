@@ -44,7 +44,7 @@ PAGE = """
     {% if coins %}
       {% for c in coins %}
         <a target="_blank"
-           href="https://www.tradingview.com/chart/cq0P5xfh/?symbol=BINANCE%3A{{ c }}USDT.P">
+           href="https://www.tradingview.com/chart/cq0P5xfh/?symbol=BYBIT%3A{{ c }}USDT.P">
           🟣 {{ c }}
         </a>
       {% endfor %}
@@ -62,12 +62,8 @@ PAGE = """
       Passed change filter: {{ stats.passed_change }}<br>
       Final matches: {{ stats.final }}<br>
       <br>
-      <b>Sample of near-misses (counter==1 but no change filter):</b><br>
-      {% if stats.near_misses %}
-        {{ stats.near_misses | join(', ') }}
-      {% else %}
-        (none — means counter filter is killing everything)
-      {% endif %}
+      <b>Near-misses:</b><br>
+      {% if stats.near_misses %}{{ stats.near_misses | join(', ') }}{% else %}(none){% endif %}
       <br><br>
       <b>Last error:</b><br>
       {{ stats.last_error }}
@@ -88,14 +84,14 @@ def index():
 def test():
     import requests
     try:
-        r = requests.get("https://fapi.binance.com/fapi/v1/ping", timeout=10)
-        r2 = requests.get("https://fapi.binance.com/fapi/v1/ticker/24hr",
-                          params={"symbol": "BTCUSDT"}, timeout=10)
-        return (f"ping status={r.status_code}<br>"
-                f"ticker status={r2.status_code}<br><br>"
-                f"body={r2.text[:600]}")
+        r = requests.get(
+            "https://api.bybit.com/v5/market/tickers",
+            params={"category": "linear", "limit": 5},
+            timeout=10,
+        )
+        return f"status={r.status_code}<br><br>body={r.text[:600]}"
     except Exception as e:
         return f"EXCEPTION: {type(e).__name__}: {e}"
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=7860)
