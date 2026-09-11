@@ -4,7 +4,7 @@ import pandas as pd
 BYBIT_TICKERS_URL = "https://api.bybit.com/v5/market/tickers"
 BYBIT_KLINE_URL   = "https://api.bybit.com/v5/market/kline"
 
-MIN_VOLUME_USD = 15_000_000
+MIN_VOLUME_USD = 1_000_000
 MAX_PRICE = 10.0
 MIN_CHANGE_PCT = 10.0
 
