@@ -6,7 +6,7 @@ BYBIT_KLINE_URL   = "https://api.bybit.com/v5/market/kline"
 
 MIN_VOLUME_USD = 1_000_000
 MAX_PRICE = 10.0
-MIN_CHANGE_PCT = 10.0
+MIN_CHANGE_PCT = 1.0
 
 BBW_LENGTH = 20
 BBW_MULT = 2.0
