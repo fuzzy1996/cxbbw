@@ -68,6 +68,9 @@ PAGE = """
       {% else %}
         (none — means counter filter is killing everything)
       {% endif %}
+      <br><br>
+      <b>Last Bybit error:</b><br>
+      {{ stats.last_error }}
     </div>
   {% endif %}
 </body>
@@ -80,6 +83,19 @@ def index():
     data, stats = logic.scan_with_stats()
     ts = "Scanned " + datetime.now().strftime("%H:%M:%S")
     return render_template_string(PAGE, data=data, ts=ts, debug=debug, stats=stats)
+
+@app.route("/test")
+def test():
+    import requests
+    try:
+        r = requests.get(
+            "https://api.bybit.com/v5/market/tickers",
+            params={"category": "linear", "limit": 5},
+            timeout=10,
+        )
+        return f"status={r.status_code}<br><br>body={r.text[:800]}"
+    except Exception as e:
+        return f"EXCEPTION: {type(e).__name__}: {e}"
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
