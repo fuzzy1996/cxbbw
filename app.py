@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string
+from flask import Flask, render_template_string, request
 from datetime import datetime
 import logic
 
@@ -22,11 +22,22 @@ PAGE = """
     padding:12px 6px;border-bottom:1px solid #1a1a1a}
   a:active{background:#1a1a1a}
   .none{color:#555;padding:6px}
+  .debug{background:#1a1a1a;padding:10px;margin-top:20px;
+         border-radius:6px;font-size:12px;color:#999}
+  .debug b{color:#c77dff}
+  .toggle{display:inline-block;padding:6px 12px;background:#333;
+          color:#eee;text-decoration:none;border-radius:4px;
+          margin-bottom:12px;font-size:12px}
 </style>
 </head>
 <body>
   <h1>CXBBW Crypto Screener</h1>
   <div class="ts">{{ ts }}</div>
+
+  <a class="toggle" href="/?debug={{ 0 if debug else 1 }}">
+    {{ "Hide debug" if debug else "Show debug" }}
+  </a>
+
   {% for period in ['24hr','48hr','72hr'] %}
     <h2>[{{ period }}]</h2>
     {% set coins = data[period] %}
@@ -41,15 +52,34 @@ PAGE = """
       <div class="none">(none)</div>
     {% endif %}
   {% endfor %}
+
+  {% if debug %}
+    <div class="debug">
+      <b>Diagnostics</b><br>
+      Tickers fetched: {{ stats.tickers }}<br>
+      Passed price/volume filter: {{ stats.passed_filter }}<br>
+      Passed BBW counter==1: {{ stats.passed_counter }}<br>
+      Passed change filter: {{ stats.passed_change }}<br>
+      Final matches: {{ stats.final }}<br>
+      <br>
+      <b>Sample of near-misses (counter==1 but no change filter):</b><br>
+      {% if stats.near_misses %}
+        {{ stats.near_misses | join(', ') }}
+      {% else %}
+        (none — means counter filter is killing everything)
+      {% endif %}
+    </div>
+  {% endif %}
 </body>
 </html>
 """
 
 @app.route("/")
 def index():
-    data = logic.scan()
+    debug = request.args.get("debug") == "1"
+    data, stats = logic.scan_with_stats()
     ts = "Scanned " + datetime.now().strftime("%H:%M:%S")
-    return render_template_string(PAGE, data=data, ts=ts)
+    return render_template_string(PAGE, data=data, ts=ts, debug=debug, stats=stats)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
