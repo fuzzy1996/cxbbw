@@ -1,12 +1,12 @@
 import requests
 import pandas as pd
 
-BYBIT_TICKERS_URL = "https://api.bybit.com/v5/market/tickers"
-BYBIT_KLINE_URL   = "https://api.bybit.com/v5/market/kline"
+BINANCE_TICKERS_URL = "https://fapi.binance.com/fapi/v1/ticker/24hr"
+BINANCE_KLINE_URL   = "https://fapi.binance.com/fapi/v1/klines"
 
-MIN_VOLUME_USD = 1_000_000
+MIN_VOLUME_USD = 15_000_000
 MAX_PRICE = 10.0
-MIN_CHANGE_PCT = 1.0
+MIN_CHANGE_PCT = 10.0
 
 BBW_LENGTH = 20
 BBW_MULT = 2.0
@@ -16,36 +16,26 @@ BBW_CONTRACTION_LENGTH = 125
 BBW_MID_RATIO = 0.5
 SMA80_LENGTH = 80
 TOTAL_CANDLES = 300
-MAX_KLINE_FETCHES = 60
 
 def _session():
     s = requests.Session()
     s.headers.update({
         'User-Agent': 'Mozilla/5.0',
         'Accept': 'application/json',
-        'Referer': 'https://www.bybit.com/'
     })
     return s
 
 def fetch_tickers(error_out=None):
     try:
-        r = _session().get(
-            BYBIT_TICKERS_URL,
-            params={'category': 'linear', 'limit': 1000},
-            timeout=15,
-        )
+        r = _session().get(BINANCE_TICKERS_URL, timeout=20)
         if error_out is not None:
             error_out.append(f"tickers HTTP {r.status_code}")
         if r.status_code != 200:
             return []
         data = r.json()
-        if data.get('retCode') != 0:
-            if error_out is not None:
-                error_out.append(
-                    f"retCode={data.get('retCode')} msg={data.get('retMsg')}"
-                )
+        if not isinstance(data, list):
             return []
-        return data['result']['list']
+        return data
     except Exception as e:
         if error_out is not None:
             error_out.append(f"tickers EXC {type(e).__name__}: {e}")
@@ -54,25 +44,20 @@ def fetch_tickers(error_out=None):
 def fetch_klines(symbol):
     try:
         r = _session().get(
-            BYBIT_KLINE_URL,
-            params={
-                'category': 'linear',
-                'symbol': symbol,
-                'interval': '60',
-                'limit': TOTAL_CANDLES,
-            },
-            timeout=15,
+            BINANCE_KLINE_URL,
+            params={'symbol': symbol, 'interval': '1h', 'limit': TOTAL_CANDLES},
+            timeout=20,
         ).json()
-        if r.get('retCode') != 0:
+        if not isinstance(r, list):
             return None
-        kl = r['result']['list']
-        kl.reverse()
-        df = pd.DataFrame(kl, columns=[
-            'start', 'open', 'high', 'low', 'close', 'volume', 'turnover'
+        df = pd.DataFrame(r, columns=[
+            'start', 'open', 'high', 'low', 'close', 'volume',
+            'close_time', 'quote_volume', 'trades',
+            'taker_base', 'taker_quote', 'ignore'
         ])
-        for c in ['open', 'high', 'low', 'close', 'volume', 'turnover']:
+        for c in ['open', 'high', 'low', 'close', 'volume', 'quote_volume']:
             df[c] = pd.to_numeric(df[c], errors='coerce')
-        return df.dropna()
+        return df[['open', 'high', 'low', 'close', 'volume']].dropna()
     except Exception:
         return None
 
@@ -130,28 +115,17 @@ def scan_with_stats():
     }
     result = {"24hr": [], "48hr": [], "72hr": []}
 
-    # Cheap pre-filter using ticker data only (no klines)
-    prelim = []
     for t in tickers:
         sym = t.get('symbol', '')
         if not sym.endswith('USDT'):
             continue
         try:
             price = float(t.get('lastPrice', 0))
-            vol   = float(t.get('turnover24h', 0))
-            chg24 = float(t.get('price24hPcnt', 0)) * 100  # Bybit gives decimal
+            vol = float(t.get('quoteVolume', 0))
         except Exception:
             continue
         if not (0 < price < MAX_PRICE and vol >= MIN_VOLUME_USD):
             continue
-        if chg24 < MIN_CHANGE_PCT:
-            continue
-        prelim.append((sym, chg24))
-
-    prelim.sort(key=lambda x: x[1], reverse=True)
-    prelim = prelim[:MAX_KLINE_FETCHES]
-
-    for sym, _ in prelim:
         stats["passed_filter"] += 1
         coin = sym.replace('USDT', '')
         df = fetch_klines(sym)
